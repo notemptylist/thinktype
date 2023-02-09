@@ -1,50 +1,62 @@
 import os
 from datetime import datetime
-from rich import print
-from rich.console import Console
-from rich.layout import Layout
-from rich.panel import Panel
+from textual.app import App, ComposeResult, Binding
+from textual.containers import Content
+from textual.widgets import Input, Static, TextLog
+
+start_header = "---begin---"
 
 
 def make_line(timestamp: datetime, text: str) -> str:
     """Format a single line."""
-    return "{} {}".format(str(timestamp), text)
+    return "{}> {}".format(str(timestamp.ctime()), text)
+
 
 def make_text(arr: list) -> str:
-    """Format all of the lines into a Renderable"""
-    return "\n".join(arr)
+    return "\n".join([s.text for s in arr])
+
 
 def make_filename(token: str) -> str:
     """Return a valid filename"""
     path = os.path.join(os.path.curdir, str(token).replace(':', '_') + ".log")
     return path
 
-def make_layout() -> Layout:
-    """Define the layout of the screen."""
-    layout = Layout()
-    layout.split_column(Layout(Panel([]), name="upper", size=None, ratio=90),
-                        Layout(Panel([]), name="lower"))
-    return layout
+
+class ThinkTypeApp(App):
+
+    CSS_PATH = "thinktype.css"
+
+    BINDINGS = {
+        Binding("ctrl+q", "quit", "Quit", show=False, priority=True),
+    }
+
+    def __init__(self):
+        super(ThinkTypeApp, self).__init__()
+
+    def compose(self) -> ComposeResult:
+        yield Content(TextLog(id="log"), id="log-container")
+        # yield Content(Static(id="log"), id="log-container")
+        yield Input(placeholder="Type your thoughts here")
+
+    def on_mount(self) -> None:
+        self.query_one(Input).focus()
+        now = datetime.now()
+        self.query_one("#log").write(make_line(now, start_header))
+
+    def on_input_submitted(self, message: Input.Submitted) -> None:
+        if message.value:
+            now = datetime.now()
+            self.query_one("#log").write(make_line(now, message.value))
+            self.query_one(Input).value = ""
+
+    def key_ctrl_s(self) -> None:
+        now = datetime.now()
+        fname = make_filename(now)
+        self.query_one("#log").write(f"Saving to {fname}")
+        with open(fname, 'a') as f:
+            f.write(make_text(self.query_one("#log").lines))
+
 
 if __name__ == "__main__":
-    quit = ['/quit', '/q']
-    save = ['/save', '/s']
-    now = datetime.now()
-    thoughts = [make_line(now, 'start')]
-    fname = make_filename(now) 
-    layout = make_layout()
-
-    console = Console()
-    intext = None
-    while intext not in quit:
-        layout['upper'].update(Panel(make_text(thoughts)))
-        print(layout)
-        intext = console.input(prompt="[blink]> ").strip()
-        now = datetime.now()
-        if intext in save:
-            with open(fname, 'a') as f:
-                f.write(make_text(thoughts))
-            intext = None
-        if intext:
-            thoughts.append(make_line(now, intext))
-        
+    app = ThinkTypeApp()
+    app.run()
