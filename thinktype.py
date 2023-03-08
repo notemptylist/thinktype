@@ -35,7 +35,6 @@ class ThinkTypeApp(App):
 
     def compose(self) -> ComposeResult:
         yield Content(TextLog(id="log"), id="log-container")
-        # yield Content(Static(id="log"), id="log-container")
         yield Input(placeholder="Type your thoughts here")
 
     def on_mount(self) -> None:
@@ -48,13 +47,20 @@ class ThinkTypeApp(App):
             now = datetime.now()
             self.query_one("#log").write(make_line(now, message.value))
             self.query_one(Input).value = ""
+            if message.value.startswith("/s"):
+                cmd, fname = message.value.split()
+                self._save_to_file(fname)
 
     def key_ctrl_s(self) -> None:
         now = datetime.now()
         fname = make_filename(now)
-        self.query_one("#log").write(f"Saving to {fname}")
+        self._save_to_file(fname)
+
+    def _save_to_file(self, fname):
+        log = self.query_one("#log")
+        log.write(f"Saving to {fname}")
         with open(fname, 'a') as f:
-            f.write(make_text(self.query_one("#log").lines))
+            f.write(make_text(log.lines))
 
 
 if __name__ == "__main__":
