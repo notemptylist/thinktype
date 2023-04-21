@@ -42,14 +42,32 @@ class ThinkTypeApp(App):
         now = datetime.now()
         self.query_one("#log").write(make_line(now, start_header))
 
+    def _handle_save(self, msg):
+        try:
+            cmd, fname = msg.value.split()
+        except ValueError:
+            log = self.query_one("#log")
+            log.write(f"/s <filename>")
+            return
+        self._save_to_file(fname)
+
+    def _handle_quit(self, msg=None):
+        self.exit()
+
     def on_input_submitted(self, message: Input.Submitted) -> None:
         if message.value:
-            now = datetime.now()
-            self.query_one("#log").write(make_line(now, message.value))
+            self.query_one("#log").write(
+                make_line(datetime.now(), message.value))
             self.query_one(Input).value = ""
-            if message.value.startswith("/s"):
-                cmd, fname = message.value.split()
-                self._save_to_file(fname)
+
+            switch = {
+                "/s": self._handle_save,
+                "/q": self._handle_quit,
+            }
+            for k, v in switch.items():
+                if message.value.startswith(k):
+                    if callable(v):
+                        v(message)
 
     def key_ctrl_s(self) -> None:
         now = datetime.now()
